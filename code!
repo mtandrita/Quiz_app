@@ -1,0 +1,161 @@
+import tkinter as tk
+from tkinter import messagebox
+import threading
+
+quiz_data = {
+    "General Knowledge": [
+        {"question": "What is the capital of France?", "options": ["Paris", "London", "Berlin", "Madrid"], "answer": "Paris"},
+        {"question": "Which planet is known as the Red Planet?", "options": ["Earth", "Mars", "Jupiter", "Saturn"], "answer": "Mars"},
+        {"question": "Who wrote 'Hamlet'?", "options": ["Shakespeare", "Wordsworth", "Keats", "Shelley"], "answer": "Shakespeare"},
+        {"question": "Which animal is known as the King of the Jungle?", "options": ["Elephant", "Tiger", "Lion", "Bear"], "answer": "Lion"},
+        {"question": "What is H2O?", "options": ["Salt", "Water", "Oxygen", "Hydrogen"], "answer": "Water"}
+    ],
+    "Programming": [
+        {"question": "Which language is used for web apps?", "options": ["Python", "Java", "HTML", "C++"], "answer": "HTML"},
+        {"question": "Which keyword is used to create a function in Python?", "options": ["func", "function", "def", "lambda"], "answer": "def"},
+        {"question": "What does CSS stand for?", "options": ["Cascading Style Sheets", "Creative Style System", "Computer Style Sheets", "Color Style System"], "answer": "Cascading Style Sheets"},
+        {"question": "Which company developed Python?", "options": ["Google", "Microsoft", "CWI", "Oracle"], "answer": "CWI"},
+        {"question": "What is the extension of Python file?", "options": [".pt", ".pyt", ".py", ".python"], "answer": ".py"}
+    ]
+}
+
+class QuizApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Quiz App")
+        self.root.geometry("600x600")
+        self.root.configure(bg="black")
+        self.category = None
+        self.q_no = 0
+        self.score = 0
+        self.timer = 10
+        self.selected_option = tk.StringVar()
+        self.user_answers = []
+        self.questions = []
+
+        self.show_category_screen()
+
+    def show_category_screen(self):
+        for widget in self.root.winfo_children():
+            widget.destroy()
+        tk.Label(self.root, text="Select a Category", font=("Arial", 18)).pack(pady=30)
+        for cat in quiz_data.keys():
+            tk.Button(self.root, text=cat, width=20, font=("Arial", 14), command=lambda c=cat: self.start_quiz(c)).pack(
+                pady=10)
+
+    def start_quiz(self, category):
+        self.category = category
+        self.questions = quiz_data[category]
+        self.q_no = 0
+        self.score = 0
+        self.user_answers = []
+        self.show_question()
+
+    def show_question(self):
+        self.timer = 10
+        self.selected_option.set(None)
+
+        for widget in self.root.winfo_children():
+            widget.destroy()
+
+        question_data = self.questions[self.q_no]
+        tk.Label(self.root, text=f"{self.category} Quiz", font=("Arial", 14), fg="gray").pack(anchor="ne", padx=10,
+                                                                                              pady=5)
+        self.timer_label = tk.Label(self.root, text=f"Time Left: {self.timer}s", font=("Arial", 12), fg="red")
+        self.timer_label.pack(anchor="ne", padx=10)
+
+        tk.Label(self.root, text=f"Q{self.q_no + 1}: {question_data['question']}", font=("Arial", 16), wraplength=500,
+                 justify="center").pack(pady=20)
+
+        self.radio_buttons = []
+        for opt in question_data["options"]:
+            btn = tk.Radiobutton(self.root, text=opt, variable=self.selected_option, value=opt, font=("Arial", 12))
+            btn.pack(anchor="w", padx=80)
+            self.radio_buttons.append(btn)
+
+        self.next_btn = tk.Button(self.root, text="Next", command=self.next_question, bg="lightblue",
+                                  font=("Arial", 12))
+        self.next_btn.pack(pady=20)
+
+        self.update_timer()
+
+    # -------------------- TIMER --------------------
+    def update_timer(self):
+        if self.timer > 0:
+            self.timer_label.config(text=f"Time Left: {self.timer}s")
+            self.timer -= 1
+            self.root.after(2000, self.update_timer)
+        else:
+            self.next_question()
+
+    def next_question(self):
+        selected = self.selected_option.get()
+        question = self.questions[self.q_no]
+        correct = question['answer']
+
+        if selected == correct:
+            self.score += 1
+        self.user_answers.append({
+            "question": question["question"],
+            "selected": selected if selected else "Not Answered",
+            "correct": correct
+        })
+
+        self.q_no += 1
+        if self.q_no < len(self.questions):
+            self.show_question()
+        else:
+            self.show_result()
+
+    # -------------------- RESULT S
+    def show_result(self):
+        for widget in self.root.winfo_children():
+            widget.destroy()
+
+        tk.Label(self.root, text="Quiz Completed!", font=("Arial", 18)).pack(pady=20)
+        tk.Label(self.root, text=f"Your Score: {self.score} / {len(self.questions)}", font=("Arial", 14)).pack(pady=10)
+
+        tk.Button(self.root, text="Review Answers", font=("Arial", 12), command=self.show_review).pack(pady=10)
+        tk.Button(self.root, text="Back to Categories", font=("Arial", 12), command=self.show_category_screen).pack(
+            pady=10)
+
+    # -------------------- REVIEW SCREEN --------------------
+    def show_review(self):
+        for widget in self.root.winfo_children():
+            widget.destroy()
+
+        tk.Label(self.root, text="Answer Review", font=("Arial", 18)).pack(pady=20)
+
+        canvas = tk.Canvas(self.root)
+        scrollbar = tk.Scrollbar(self.root, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas)
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        for i, entry in enumerate(self.user_answers):
+            q = f"{i + 1}. {entry['question']}"
+            sel = f"Your Answer: {entry['selected']}"
+            cor = f"Correct Answer: {entry['correct']}"
+            tk.Label(scrollable_frame, text=q, font=("Arial", 12, "bold"), wraplength=550, justify="left").pack(
+                anchor="w", padx=10, pady=2)
+            tk.Label(scrollable_frame, text=sel, fg="blue", wraplength=550, justify="left").pack(anchor="w", padx=20)
+            tk.Label(scrollable_frame, text=cor, fg="green", wraplength=550, justify="left").pack(anchor="w", padx=20)
+            tk.Label(scrollable_frame, text="-" * 80).pack()
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        tk.Button(self.root, text="Back to Categories", command=self.show_category_screen, font=("Arial", 12)).pack(
+            pady=10)
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = QuizApp(root)
+    root.mainloop()
+
+
